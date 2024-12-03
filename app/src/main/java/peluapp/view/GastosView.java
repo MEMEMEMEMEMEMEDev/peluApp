@@ -1,10 +1,17 @@
 package peluapp.view;
 
+import peluapp.model.GastoDAO;
+import peluapp.utils.InputValidator;
+
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.List;
 
 public class GastosView extends JPanel {
+    private JTable gastosTable;
+    private DefaultTableModel tableModel;
 
     public GastosView() {
         setLayout(new BorderLayout());
@@ -18,7 +25,6 @@ public class GastosView extends JPanel {
         JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Campos del formulario
         JLabel lblMonto = new JLabel("Monto:");
         JTextField txtMonto = new JTextField();
 
@@ -51,9 +57,9 @@ public class GastosView extends JPanel {
         JButton btnModificar = new JButton("Modificar");
         JButton btnEliminar = new JButton("Eliminar");
 
-        btnAgregar.addActionListener(e -> System.out.println("Agregar gasto: " + txtMonto.getText()));
-        btnModificar.addActionListener(e -> System.out.println("Modificar gasto seleccionado"));
-        btnEliminar.addActionListener(e -> System.out.println("Eliminar gasto seleccionado"));
+        btnAgregar.addActionListener(e -> onAgregarGasto(txtMonto, cbTipo, cbFormaPago, txtDescripcion));
+        btnModificar.addActionListener(e -> onModificarGasto(txtMonto, cbTipo, cbFormaPago, txtDescripcion));
+        btnEliminar.addActionListener(e -> onEliminarGasto());
 
         buttonPanel.add(btnAgregar);
         buttonPanel.add(btnModificar);
@@ -62,12 +68,105 @@ public class GastosView extends JPanel {
         add(buttonPanel, BorderLayout.EAST);
 
         // Tabla de gastos
-        JTable gastosTable = new JTable(new Object[][]{
-                {"1", "10000", "Gasto", "Efectivo", "Compra de Shampoo"},
-                {"2", "15000", "Ingreso", "Transferencia", "Pago de cliente"}
-        }, new String[]{"ID", "Monto", "Tipo", "Forma de Pago", "Descripción"});
-
+        tableModel = new DefaultTableModel(new String[]{"ID", "Monto", "Tipo", "Forma de Pago", "Descripción"}, 0);
+        gastosTable = new JTable(tableModel);
         JScrollPane scrollPane = new JScrollPane(gastosTable);
         add(scrollPane, BorderLayout.CENTER);
+
+        // Cargar datos iniciales desde la base de datos
+        cargarGastos();
+    }
+
+    // Método para cargar gastos desde la base de datos
+    private void cargarGastos() {
+        tableModel.setRowCount(0); // Limpiar tabla
+        GastoDAO gastoDAO = new GastoDAO();
+        List<String[]> gastos = gastoDAO.obtenerTodosLosGastos();
+
+        for (String[] gasto : gastos) {
+            tableModel.addRow(gasto);
+        }
+    }
+
+    // Método para agregar gastos
+    private void onAgregarGasto(JTextField txtMonto, JComboBox<String> cbTipo, JComboBox<String> cbFormaPago, JTextField txtDescripcion) {
+        String monto = txtMonto.getText();
+        String tipo = (String) cbTipo.getSelectedItem();
+        String formaPago = (String) cbFormaPago.getSelectedItem();
+        String descripcion = txtDescripcion.getText();
+
+        if (!InputValidator.validarNumero(monto, 1, Integer.MAX_VALUE)) {
+            JOptionPane.showMessageDialog(this, "El monto debe ser un número positivo.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!InputValidator.validarTexto(descripcion, 255)) {
+            JOptionPane.showMessageDialog(this, "La descripción no es válida o supera los 255 caracteres.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        GastoDAO gastoDAO = new GastoDAO();
+        boolean success = gastoDAO.agregarGasto(Double.parseDouble(monto), tipo, formaPago, descripcion);
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Gasto agregado exitosamente.");
+            cargarGastos();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al agregar el gasto.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Método para modificar gastos
+    private void onModificarGasto(JTextField txtMonto, JComboBox<String> cbTipo, JComboBox<String> cbFormaPago, JTextField txtDescripcion) {
+        String id = JOptionPane.showInputDialog(this, "ID del gasto a modificar:");
+        String monto = txtMonto.getText();
+        String tipo = (String) cbTipo.getSelectedItem();
+        String formaPago = (String) cbFormaPago.getSelectedItem();
+        String descripcion = txtDescripcion.getText();
+
+        if (!InputValidator.validarNumero(id, 1, Integer.MAX_VALUE)) {
+            JOptionPane.showMessageDialog(this, "El ID no es válido.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!InputValidator.validarNumero(monto, 1, Integer.MAX_VALUE)) {
+            JOptionPane.showMessageDialog(this, "El monto debe ser un número positivo.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!InputValidator.validarTexto(descripcion, 255)) {
+            JOptionPane.showMessageDialog(this, "La descripción no es válida o supera los 255 caracteres.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        GastoDAO gastoDAO = new GastoDAO();
+        boolean success = gastoDAO.modificarGasto(Integer.parseInt(id), Double.parseDouble(monto), tipo, formaPago, descripcion);
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Gasto modificado exitosamente.");
+            cargarGastos();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al modificar el gasto.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Método para eliminar gastos
+    private void onEliminarGasto() {
+        String id = JOptionPane.showInputDialog(this, "ID del gasto a eliminar:");
+
+        if (!InputValidator.validarNumero(id, 1, Integer.MAX_VALUE)) {
+            JOptionPane.showMessageDialog(this, "El ID no es válido.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        GastoDAO gastoDAO = new GastoDAO();
+        boolean success = gastoDAO.eliminarGasto(Integer.parseInt(id));
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Gasto eliminado exitosamente.");
+            cargarGastos();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al eliminar el gasto.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 }
